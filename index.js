@@ -35,7 +35,7 @@ async function run() {
 
       const email = req.query.email;
       const query = {};
-      if(email){
+      if (email) {
         query.hr_email = email;
       }
 
@@ -85,6 +85,15 @@ async function run() {
         application.company_logo = job.company_logo
       }
 
+      res.send(result);
+    });
+
+    // app.get('/applications/:id', () =>{})
+    app.get('/applications/job/:job_id', async (req, res) => {
+      const job_id = req.params.job_id;
+      console.log(job_id);
+      const query = { jobId: job_id }
+      const result = await applicationsCollection.find(query).toArray();
       res.send(result);
     })
 
