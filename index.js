@@ -91,7 +91,7 @@ async function run() {
     // app.get('/applications/:id', () =>{})
     app.get('/applications/job/:job_id', async (req, res) => {
       const job_id = req.params.job_id;
-      console.log(job_id);
+      // console.log(job_id);
       const query = { jobId: job_id }
       const result = await applicationsCollection.find(query).toArray();
       res.send(result);
@@ -104,7 +104,18 @@ async function run() {
       res.send(result);
     });
 
+    app.patch('/applications/:id', async(req, res) =>{
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id)}
+      const updatedDoc = {
+        $set: {
+          status: req.body.status
+        }
+      }
 
+      const result = await applicationsCollection.updateOne(filter, updatedDoc)
+      res.send(result);
+    })
 
 
     // Send a ping to confirm a successful connection
