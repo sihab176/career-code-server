@@ -2,6 +2,11 @@ const express = require('express')
 const cors = require('cors')
 const app = express();
 const port = process.env.PORT || 3000;
+// firebase admin sdk
+const admin = require("firebase-admin");
+
+const serviceAccount = require("./job-portal-5953b-firebase-adminsdk-fbsvc-7a1987e550.json");
+
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 
@@ -11,7 +16,44 @@ app.use(express.json());
 
 
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.zqx7vrd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+//! firebase admin sdk\\
+
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+
+//!------------------------ verify  firebase token ---------------------------------------->
+const verifyFirebaseToken=async(req,res,next)=>{
+  // console.log('token in the middleware',req.headers.authorization);
+  const authHeader=req.headers?.authorization         // when url hit the header in client side .
+  if(!authHeader || !authHeader.startsWith('Bearer ')){
+    return res.status(401).send({error:true ,message:'unauthorized access '})
+  }
+const token=authHeader.split(" ")[1]
+try{
+  const decoded=await admin.auth().verifyIdToken(token) //verify the token 
+  req.decoded=decoded; // store the decoded token in the request object
+
+  console.log('decoded token',decoded);
+    next()
+}
+catch(error){
+  return res.status(401).send({error:true,message:'unauthorized access'})
+}
+
+}
+
+const verifyTokenEmail=async(req,res,next)=>{
+  if(req.query.email !==req.decoded.email){
+    return res.status(401).send({message:'forbidden access'})
+  }
+  next()
+}
+
+//!-------------------------------- mongodb ----------------------------------->
+const uri = `mongodb+srv://${process.env.USER_NAME}:${process.env.USER_PASS}@cluster0.dgbpvrt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -22,16 +64,17 @@ const client = new MongoClient(uri, {
   }
 });
 
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-    const jobsCollection = client.db('careerCode').collection('jobs');
-    const applicationsCollection = client.db('careerCode').collection('applications')
+    const jobsCollection = client.db('jobDB').collection('job');
+    const applicationsCollection = client.db('applyDB').collection('apply')
 
     // jobs api
-    app.get('/jobs', async (req, res) => {
+    app.get('/jobPortal', async (req, res) => {
 
       const email = req.query.email;
       const query = {};
@@ -52,8 +95,10 @@ async function run() {
     //   res.send(result);
     // })
 
-    app.get('/jobs/applications', async (req, res) => {
+    app.get('/jobPortal/applications',verifyFirebaseToken,verifyTokenEmail, async (req, res) => {
       const email = req.query.email;
+
+   
       const query = { hr_email: email };
       const jobs = await jobsCollection.find(query).toArray();
 
@@ -68,14 +113,14 @@ async function run() {
     })
 
 
-    app.get('/jobs/:id', async (req, res) => {
+    app.get('/jobPortal/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await jobsCollection.findOne(query);
       res.send(result)
     });
 
-    app.post('/jobs', async (req, res) => {
+    app.post('/jobPortal', async (req, res) => {
       const newJob = req.body;
       console.log(newJob);
       const result = await jobsCollection.insertOne(newJob);
@@ -84,8 +129,13 @@ async function run() {
 
     
     // job applications related apis
-    app.get('/applications', async (req, res) => {
-      const email = req.query.email;
+    app.get('/applications',verifyFirebaseToken,verifyTokenEmail, async (req, res) => {
+      const email = req.query.email; 
+    
+      
+      if(email !==req.decoded.email){
+        return res.status(401).send({error:true ,message:'unauthorized access'})
+      }    // admin verify the token and get the email
 
       const query = {
         applicant: email
