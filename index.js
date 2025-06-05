@@ -5,7 +5,9 @@ const port = process.env.PORT || 3000;
 // firebase admin sdk
 const admin = require("firebase-admin");
 
-const serviceAccount = require("./job-portal-5953b-firebase-adminsdk-fbsvc-7a1987e550.json");
+// service account key
+const decoded=Buffer.from(process.env.FB_SERVICE_KEY,'base64').toString('utf-8')
+const serviceAccount = JSON.parse(decoded)
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
@@ -103,6 +105,7 @@ async function run() {
       const jobs = await jobsCollection.find(query).toArray();
 
       // should use aggregate to have optimum data fetching
+      
       for (const job of jobs) {
         const applicationQuery = { jobId: job._id.toString() }
         const application_count = await applicationsCollection.countDocuments(applicationQuery)
